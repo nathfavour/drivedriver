@@ -1,8 +1,8 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
-import '../models/file_item.dart';
-import '../models/scan_status.dart';
+import '../models/file_item.dart'; // Ensure this file exists and is correctly implemented
+import '../models/scan_status.dart'; // Ensure this file exists and is correctly implemented
 
 class ApiService extends ChangeNotifier {
   final String _baseUrl = 'http://localhost:8080'; // Default Rust backend URL

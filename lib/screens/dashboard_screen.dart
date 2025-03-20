@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../services/api_service.dart';
-import '../models/file_item.dart';
-import '../models/scan_status.dart';
-import '../widgets/file_list_item.dart';
+import '../models/file_item.dart'; // Ensure this file exists and is correctly implemented
+import '../models/scan_status.dart'; // Ensure this file exists and is correctly implemented
+import '../widgets/file_list_item.dart'; // Ensure this file exists and is correctly implemented
 
 class DashboardScreen extends StatefulWidget {
   @override
@@ -144,7 +144,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 Expanded(
                   child: Text(
                     _currentPath == '/' ? 'Root' : _currentPath,
-                    style: Theme.of(context).textTheme.subtitle1,
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleMedium, // Updated from subtitle1
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
