@@ -28,7 +28,7 @@ class FileListItem extends StatelessWidget {
         '${file.type == FileType.file ? file.sizeFormatted : "Directory"} • ${dateFormat.format(file.modified)}',
       ),
       trailing: file.type == FileType.directory
-          ? Icon(Icons.arrow_forward_ios, size: 16)
+          ? const Icon(Icons.arrow_forward_ios, size: 16)
           : null,
       onTap: onTap,
     );
