@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'screens/dashboard_screen.dart';
-// Ensure this file exists and is correctly implemented
+import 'screens/settings_screen.dart';
 import 'services/api_service.dart';
 
 void main() {
@@ -35,8 +35,7 @@ class DriveDriverApp extends StatelessWidget {
       initialRoute: '/',
       routes: {
         '/': (context) => DashboardScreen(),
-        '/settings': (context) =>
-            SettingsScreen(), // Ensure this route is valid
+        '/settings': (context) => SettingsScreen(),
       },
     );
   }
