@@ -1,3 +1,4 @@
+import 'package:drivedriver/pages/latest_stats_page.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'screens/dashboard_screen.dart';
@@ -48,6 +49,7 @@ class DriveDriverApp extends StatelessWidget {
       routes: {
         '/': (context) => DashboardScreen(),
         '/settings': (context) => SettingsScreen(),
+        '/latest_stats': (context) => LatestStatsPage(), // new route
       },
     );
   }

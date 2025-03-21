@@ -92,6 +92,14 @@ class _HomePageState extends State<HomePage> {
               },
             ),
             const Divider(),
+            ListTile(
+              title: const Text('Latest Stats'),
+              leading: const Icon(Icons.insert_chart),
+              onTap: () {
+                Navigator.pop(context);
+                Navigator.pushNamed(context, '/latest_stats');
+              },
+            ),
             ValueListenableBuilder<bool>(
               valueListenable: widget.backendService.isBackendRunning,
               builder: (context, isRunning, child) {
