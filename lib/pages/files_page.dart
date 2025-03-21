@@ -518,7 +518,7 @@ class _FilesPageState extends State<FilesPage> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   SwitchListTile(
-                    title: Text('Filter by size'),
+                    title: const Text('Filter by size'),
                     value: _sizeFilterEnabled,
                     onChanged: (value) {
                       setState(() {
@@ -553,7 +553,7 @@ class _FilesPageState extends State<FilesPage> {
                   onPressed: () {
                     Navigator.pop(context);
                   },
-                  child: Text('Cancel'),
+                  child: const Text('Cancel'),
                 ),
                 ElevatedButton(
                   onPressed: () {
@@ -562,7 +562,7 @@ class _FilesPageState extends State<FilesPage> {
                     this.setState(() {});
                     _loadFiles();
                   },
-                  child: Text('Apply'),
+                  child: const Text('Apply'),
                 ),
               ],
             );
@@ -579,10 +579,23 @@ class _FilesPageState extends State<FilesPage> {
     if (importance >= 20) return Colors.blue;
     return Colors.grey;
   }
-
-  @override
-  void dispose() {
-    _searchController.dispose();
-    super.dispose();
+  
+  (IconData, Color) _getCategoryIconAndColor(String category) {
+    switch (category.toLowerCase()) {
+      case 'document':
+        return (Icons.description, Colors.blue);
+      case 'image':
+        return (Icons.image, Colors.green);
+      case 'video':
+        return (Icons.videocam, Colors.red);
+      case 'audio':
+        return (Icons.audiotrack, Colors.purple);
+      case 'archive':
+        return (Icons.folder_zip, Colors.amber);
+      case 'application':
+        return (Icons.apps, Colors.cyan);
+      default:
+        return (Icons.insert_drive_file, Colors.grey);
+    }
   }
 }
