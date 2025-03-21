@@ -116,10 +116,17 @@ class BackendService {
   /// Start the backend process using the full path from user home dir
   Future<bool> startBackend() async {
     try {
+      // Prevent subprocess execution on mobile platforms.
       if (Platform.isAndroid || Platform.isIOS) {
         print(
             "Subprocess execution not allowed on mobile platforms. Please start the backend manually.");
         return false;
+      }
+
+      // Check if the backend is already running from health endpoint.
+      if (await checkBackendRunning()) {
+        print("Backend already running, skipping start command.");
+        return true;
       }
 
       final home = Platform.environment['HOME'];
@@ -139,6 +146,7 @@ class BackendService {
         print('Backend failed to start with exit code: ${result.exitCode}');
         return false;
       }
+
       print('Backend start command executed successfully');
       return true;
     } catch (e, stackTrace) {
@@ -453,26 +461,34 @@ class BackendService {
 
   /// Set up periodic health checks and data refresh
   void _startPeriodicChecks() {
-    // Check backend health every 30 seconds
+    // Check backend health every 30 seconds and attempt restart if not running.
     Future.doWhile(() async {
       await Future.delayed(const Duration(seconds: 30));
       final isRunning = await checkBackendRunning();
 
-      // Only update if there's a change in status
+      if (!isRunning) {
+        print("Backend not running; attempting restart...");
+        final started = await startBackend();
+        if (started) {
+          print("Backend restarted successfully.");
+          // Wait a bit before re-checking
+          await Future.delayed(const Duration(seconds: 3));
+        } else {
+          print("Failed to restart backend.");
+        }
+      }
+
       if (isRunning != isBackendRunning.value) {
         isBackendRunning.value = isRunning;
-
-        // If backend just came online, refresh data
         if (isRunning) {
           await refreshAllData();
         }
       }
 
-      // Continue indefinitely
-      return true;
+      return true; // Continue indefinitely.
     });
 
-    // Refresh data every 2 minutes if backend is running
+    // Refresh data every 2 minutes if backend is running.
     Future.doWhile(() async {
       await Future.delayed(const Duration(minutes: 2));
       if (isBackendRunning.value) {
