@@ -49,7 +49,7 @@ class DriveDriverApp extends StatelessWidget {
       routes: {
         '/': (context) => DashboardScreen(),
         '/settings': (context) => SettingsScreen(),
-        '/latest_stats': (context) => LatestStatsPage(), // new route
+        '/latest_stats': (context) => LatestStatsPage(), // added new route
       },
     );
   }

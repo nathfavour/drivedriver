@@ -13,7 +13,9 @@ class LatestStatsPage extends StatefulWidget {
 class _LatestStatsPageState extends State<LatestStatsPage> {
   Map<String, dynamic>? stats;
   Timer? _timer;
-  final String path = '.drivedriver/data/latest_stats.json';
+  // Note: the file is located under the system home directory
+  final String statsPath =
+      '${Platform.environment['HOME']}/.drivedriver/data/latest_stats.json';
 
   @override
   void initState() {
@@ -24,7 +26,7 @@ class _LatestStatsPageState extends State<LatestStatsPage> {
 
   Future<void> _loadStats() async {
     try {
-      final file = File(path);
+      final file = File(statsPath);
       if (await file.exists()) {
         final content = await file.readAsString();
         setState(() {
@@ -32,7 +34,6 @@ class _LatestStatsPageState extends State<LatestStatsPage> {
         });
       }
     } catch (e) {
-      // Optionally handle read errors
       setState(() {
         stats = {'error': 'Unable to load stats: $e'};
       });
