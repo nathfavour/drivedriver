@@ -254,9 +254,9 @@ class _FilesPageState extends State<FilesPage> {
   }
 
   Widget _buildFileListView() {
-    return ValueListenableBuilder<Map<String, dynamic>>(
-      valueListenable: widget.backendService.fileListData,
-      builder: (context, fileData, child) {
+    return ValueListenableBuilder<List<dynamic>>(
+      valueListenable: widget.backendService.fileMetadata,
+      builder: (context, files, child) {
         if (_errorMessage != null) {
           return Center(
             child: Column(
@@ -280,7 +280,7 @@ class _FilesPageState extends State<FilesPage> {
           );
         }
 
-        if (_isLoading && (fileData['files'] as List).isEmpty) {
+        if (_isLoading && files.isEmpty) {
           return Center(child: CircularProgressIndicator());
         }
 
@@ -299,8 +299,6 @@ class _FilesPageState extends State<FilesPage> {
             },
           );
         }
-
-        final files = fileData['files'] as List;
 
         if (files.isEmpty) {
           return PlaceholderContent(

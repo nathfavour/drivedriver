@@ -204,7 +204,8 @@ class BackendService {
       final response = await http.get(Uri.parse('${baseUrl}/metadata'));
 
       if (response.statusCode == 200) {
-        fileMetadata.value = jsonDecode(response.body);
+        // Expecting a list of metadata
+        fileMetadata.value = List<dynamic>.from(jsonDecode(response.body));
       }
     } catch (e) {
       print('Failed to fetch file metadata: $e');
