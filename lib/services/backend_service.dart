@@ -130,12 +130,35 @@ class BackendService {
         return false;
       }
 
-      // Start the backend process with runInShell enabled to address permission issues.
+      // Check if file exists and has execution permission
+      final execFile = File(executablePath);
+      if (await execFile.exists()) {
+        // On Unix systems, check file permissions
+        if (!Platform.isWindows) {
+          try {
+            final result = await Process.run('test', ['-x', executablePath]);
+            if (result.exitCode != 0) {
+              print('Backend executable found but lacks execution permission.');
+              print('Run: chmod +x $executablePath');
+              return false;
+            }
+          } catch (e) {
+            print('Could not check file permissions: $e');
+          }
+        }
+      } else {
+        print('Backend executable not found at: $executablePath');
+        return false;
+      }
+
+      print('Launching backend from: $executablePath');
+
+      // Start the backend process
       final process = await Process.start(
         executablePath,
         ['start'],
-        runInShell: true, // Added runInShell: true
-        mode: ProcessStartMode.detached,
+        runInShell: true,
+        mode: ProcessStartMode.detachedWithStdio,
       );
 
       // Log process output for debugging
@@ -398,11 +421,18 @@ class BackendService {
   Future<String?> _getBackendExecutablePath() async {
     // Try to find the executable in different locations based on platform
 
+    // Local project-specific path first (most likely to work)
+    final String projectPath = '${Directory.current.path}/drivedriverb';
+
     // Default locations to check
     final List<String> possibleLocations = [
+      projectPath,
+      '${Directory.current.path}/bin/drivedriverb',
+      './drivedriverb', // Relative to current directory
       'drivedriverb', // If in PATH
       '/usr/local/bin/drivedriverb',
       '/usr/bin/drivedriverb',
+      '${Platform.environment['HOME']}/drivedriverb',
     ];
 
     // Add platform-specific locations
@@ -415,16 +445,26 @@ class BackendService {
       possibleLocations.add('/Applications/drivedriverb');
     }
 
+    // Print all possible locations for debugging
+    print('Checking for backend executable in these locations:');
+    for (final location in possibleLocations) {
+      print('- $location');
+    }
+
     // Check each location
     for (final location in possibleLocations) {
       try {
         final file = File(location);
         if (await file.exists()) {
+          print('Found backend executable at: $location');
           return location;
         }
-      } catch (_) {}
+      } catch (e) {
+        print('Error checking path $location: $e');
+      }
     }
 
+    print('Could not find backend executable in any standard location');
     // Fallback: assume just the command name which might be in PATH
     return 'drivedriverb';
   }
