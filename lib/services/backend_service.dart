@@ -116,6 +116,13 @@ class BackendService {
   /// Start the backend process
   Future<bool> startBackend() async {
     try {
+      // Prevent subprocess execution on mobile platforms.
+      if (Platform.isAndroid || Platform.isIOS) {
+        print(
+            "Subprocess execution not allowed on mobile platforms. Please start the backend manually.");
+        return false;
+      }
+
       // Get path to the backend executable
       final executablePath = await _getBackendExecutablePath();
       if (executablePath == null) {
@@ -123,10 +130,11 @@ class BackendService {
         return false;
       }
 
-      // Start the backend process
+      // Start the backend process with runInShell enabled to address permission issues.
       final process = await Process.start(
         executablePath,
         ['start'],
+        runInShell: true, // Added runInShell: true
         mode: ProcessStartMode.detached,
       );
 
