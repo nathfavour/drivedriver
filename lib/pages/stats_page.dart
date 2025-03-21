@@ -84,7 +84,7 @@ class _StatsPageState extends State<StatsPage> {
                       children: [
                         Text(
                           'Scan Summary',
-                          style: Theme.of(context).textTheme.headline5,
+                          style: Theme.of(context).textTheme.headlineSmall,
                         ),
                         const Divider(),
                         const SizedBox(height: 8),
@@ -124,7 +124,7 @@ class _StatsPageState extends State<StatsPage> {
                         children: [
                           Text(
                             'File Type Distribution',
-                            style: Theme.of(context).textTheme.headline5,
+                            style: Theme.of(context).textTheme.headlineSmall,
                           ),
                           const Divider(),
                           const SizedBox(height: 16),
@@ -146,7 +146,7 @@ class _StatsPageState extends State<StatsPage> {
                         children: [
                           Text(
                             'File Type Breakdown',
-                            style: Theme.of(context).textTheme.headline5,
+                            style: Theme.of(context).textTheme.headlineSmall,
                           ),
                           const Divider(),
                           const SizedBox(height: 8),

@@ -14,11 +14,33 @@ class BackendService {
       ValueNotifier<Map<String, dynamic>>({});
   final ValueNotifier<List<dynamic>> fileMetadata =
       ValueNotifier<List<dynamic>>([]);
+  final ValueNotifier<Map<String, dynamic>> systemStatus =
+      ValueNotifier<Map<String, dynamic>>({});
+  final ValueNotifier<Map<String, dynamic>> configSettings =
+      ValueNotifier<Map<String, dynamic>>({});
+  final ValueNotifier<Map<String, dynamic>> fileListData =
+      ValueNotifier<Map<String, dynamic>>({
+    'total': 0,
+    'page': 1,
+    'page_size': 50,
+    'total_pages': 0,
+    'files': [],
+  });
 
   // Singleton pattern
   static final BackendService _instance = BackendService._internal();
   factory BackendService() => _instance;
   BackendService._internal();
+
+  // Add file listing filtering state
+  int _currentPage = 1;
+  int _pageSize = 50;
+  String _sortBy = 'name';
+  String _sortOrder = 'asc';
+  String? _filterCategory;
+  int? _filterSizeMin;
+  int? _filterSizeMax;
+  String? _searchTerm;
 
   /// Initialize the backend service, checking if the backend is running
   /// and starting it if necessary
@@ -189,6 +211,147 @@ class BackendService {
     }
   }
 
+  /// Get system status from the backend
+  Future<void> fetchSystemStatus() async {
+    if (!isBackendRunning.value) return;
+
+    try {
+      final response = await http.get(Uri.parse('${baseUrl}/status'));
+
+      if (response.statusCode == 200) {
+        systemStatus.value = jsonDecode(response.body);
+      }
+    } catch (e) {
+      print('Failed to fetch system status: $e');
+    }
+  }
+
+  /// Get configuration from the backend
+  Future<void> fetchConfig() async {
+    if (!isBackendRunning.value) return;
+
+    try {
+      final response = await http.get(Uri.parse('${baseUrl}/config'));
+
+      if (response.statusCode == 200) {
+        configSettings.value = jsonDecode(response.body);
+      }
+    } catch (e) {
+      print('Failed to fetch config: $e');
+    }
+  }
+
+  /// Update configuration on the backend
+  Future<bool> updateConfig(Map<String, dynamic> newConfig) async {
+    if (!isBackendRunning.value) return false;
+
+    try {
+      final response = await http.post(
+        Uri.parse('${baseUrl}/config'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(newConfig),
+      );
+
+      if (response.statusCode == 200) {
+        // Update local config
+        await fetchConfig();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      print('Failed to update config: $e');
+      return false;
+    }
+  }
+
+  /// Get file list with filtering and pagination
+  Future<void> fetchFileList({
+    int? page,
+    int? pageSize,
+    String? sortBy,
+    String? sortOrder,
+    String? filterCategory,
+    int? filterSizeMin,
+    int? filterSizeMax,
+    String? searchTerm,
+  }) async {
+    if (!isBackendRunning.value) return;
+
+    // Update state with provided parameters or use existing values
+    _currentPage = page ?? _currentPage;
+    _pageSize = pageSize ?? _pageSize;
+    _sortBy = sortBy ?? _sortBy;
+    _sortOrder = sortOrder ?? _sortOrder;
+    _filterCategory = filterCategory ?? _filterCategory;
+    _filterSizeMin = filterSizeMin ?? _filterSizeMin;
+    _filterSizeMax = filterSizeMax ?? _filterSizeMax;
+    _searchTerm = searchTerm ?? _searchTerm;
+
+    try {
+      // Build query parameters
+      final queryParams = {
+        'page': _currentPage.toString(),
+        'page_size': _pageSize.toString(),
+        'sort_by': _sortBy,
+        'sort_order': _sortOrder,
+      };
+
+      if (_filterCategory != null) {
+        queryParams['filter_category'] = _filterCategory!;
+      }
+
+      if (_filterSizeMin != null) {
+        queryParams['filter_size_min'] = _filterSizeMin.toString();
+      }
+
+      if (_filterSizeMax != null) {
+        queryParams['filter_size_max'] = _filterSizeMax.toString();
+      }
+
+      if (_searchTerm != null && _searchTerm!.isNotEmpty) {
+        queryParams['search_term'] = _searchTerm!;
+      }
+
+      final uri =
+          Uri.parse('${baseUrl}/files').replace(queryParameters: queryParams);
+      final response = await http.get(uri);
+
+      if (response.statusCode == 200) {
+        fileListData.value = jsonDecode(response.body);
+      } else {
+        print('Error fetching file list: ${response.statusCode}');
+        throw Exception('Failed to load file list: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Failed to fetch file list: $e');
+      throw Exception('Failed to load file list: $e');
+    }
+  }
+
+  /// Get detailed information about a specific file
+  Future<Map<String, dynamic>> getFileDetails(String filePath) async {
+    if (!isBackendRunning.value) {
+      return {'error': 'Backend not running'};
+    }
+
+    try {
+      // Encode the path for URL
+      final encodedPath = Uri.encodeComponent(filePath);
+      final response =
+          await http.get(Uri.parse('${baseUrl}/files/$encodedPath'));
+
+      if (response.statusCode == 200) {
+        return jsonDecode(response.body);
+      } else {
+        print('Error fetching file details: ${response.statusCode}');
+        return {'error': 'Failed to load file details: ${response.statusCode}'};
+      }
+    } catch (e) {
+      print('Failed to fetch file details: $e');
+      return {'error': 'Exception: $e'};
+    }
+  }
+
   /// Initiate a scan of a specific drive
   Future<bool> scanDrive(String path) async {
     if (!isBackendRunning.value) return false;
@@ -207,11 +370,19 @@ class BackendService {
     }
   }
 
-  /// Refresh all data from the backend
+  /// Enhanced refresh method that updates all data
   Future<void> refreshAllData() async {
-    await fetchDrives();
-    await fetchScanStats();
-    await fetchFileMetadata();
+    try {
+      await Future.wait([
+        fetchDrives(),
+        fetchScanStats(),
+        fetchSystemStatus(),
+        fetchConfig(),
+        fetchFileList(),
+      ]);
+    } catch (e) {
+      print('Error during data refresh: $e');
+    }
   }
 
   /// Helper method to locate the backend executable

@@ -1,3 +1,6 @@
+import 'package:drivedriver/pages/drives_page.dart';
+import 'package:drivedriver/pages/files_page.dart';
+import 'package:drivedriver/pages/stats_page.dart';
 import 'package:flutter/material.dart';
 import '../services/backend_service.dart';
 

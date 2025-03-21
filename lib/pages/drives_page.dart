@@ -121,12 +121,12 @@ class DriveCard extends StatelessWidget {
                     children: [
                       Text(
                         displayName,
-                        style: Theme.of(context).textTheme.headline6,
+                        style: Theme.of(context).textTheme.titleLarge,
                         overflow: TextOverflow.ellipsis,
                       ),
                       Text(
                         drivePath,
-                        style: Theme.of(context).textTheme.caption,
+                        style: Theme.of(context).textTheme.bodySmall,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ],
