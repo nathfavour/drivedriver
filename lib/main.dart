@@ -1,10 +1,11 @@
+import 'package:drivedriver/pages/home_page.dart';
 import 'package:drivedriver/pages/latest_stats_page.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'screens/dashboard_screen.dart';
 import 'screens/settings_screen.dart';
 import 'services/api_service.dart';
 import 'services/backend_service.dart';
+import 'theme/app_theme.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -34,22 +35,14 @@ class DriveDriverApp extends StatelessWidget {
     return MaterialApp(
       title: 'DriveDriver',
       debugShowCheckedModeBanner: false,
-      theme: ThemeData(
-        primarySwatch: Colors.blue,
-        visualDensity: VisualDensity.adaptivePlatformDensity,
-        brightness: Brightness.light,
-      ),
-      darkTheme: ThemeData(
-        primarySwatch: Colors.blue,
-        visualDensity: VisualDensity.adaptivePlatformDensity,
-        brightness: Brightness.dark,
-      ),
+      theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
       themeMode: ThemeMode.system,
       initialRoute: '/',
       routes: {
-        '/': (context) => DashboardScreen(),
+        '/': (context) => HomePage(backendService: backendService),
         '/settings': (context) => SettingsScreen(),
-        '/latest_stats': (context) => LatestStatsPage(), // added new route
+        '/latest_stats': (context) => LatestStatsPage(),
       },
     );
   }
