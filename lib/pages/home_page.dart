@@ -1,8 +1,11 @@
 import 'package:drivedriver/pages/drives_page.dart';
 import 'package:drivedriver/pages/files_page.dart';
 import 'package:drivedriver/pages/stats_page.dart';
+import 'package:drivedriver/widgets/backend_status_button.dart';
+import 'package:drivedriver/widgets/modern_drawer.dart';
 import 'package:flutter/material.dart';
 import '../services/backend_service.dart';
+import 'dart:io';
 
 class HomePage extends StatefulWidget {
   final BackendService backendService;
@@ -15,147 +18,136 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   int _selectedIndex = 0;
+  final PageController _pageController = PageController();
+
+  void _onItemTapped(int index) {
+    setState(() {
+      _selectedIndex = index;
+    });
+    _pageController.jumpToPage(index);
+  }
+
+  Future<void> _refreshData() async {
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text('Refreshing data...')));
+    await widget.backendService.refreshAllData();
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context)
+        .showSnackBar(const SnackBar(content: Text('Data refreshed')));
+  }
+
+  void _launchVerboseMonitor() {
+    if (Platform.isWindows) {
+      Process.run('cmd', ['/c', 'start', 'drivedriverb', 'monitor']);
+    } else {
+      Process.run('x-terminal-emulator', ['-e', 'drivedriverb', 'monitor']);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    // Build drawer items
+    final drawerItems = [
+      const DrawerItem(
+        title: 'Drives',
+        icon: Icons.storage,
+      ),
+      const DrawerItem(
+        title: 'Statistics',
+        icon: Icons.insert_chart,
+      ),
+      const DrawerItem(
+        title: 'Files',
+        icon: Icons.folder,
+      ),
+    ];
+
+    // Build drawer footer items
+    final drawerFooterItems = [
+      ListTile(
+        leading: const Icon(Icons.bar_chart),
+        title: const Text('Latest Stats'),
+        onTap: () {
+          Navigator.pushNamed(context, '/latest_stats');
+        },
+      ),
+      ListTile(
+        leading: const Icon(Icons.settings),
+        title: const Text('Settings'),
+        onTap: () {
+          Navigator.pushNamed(context, '/settings');
+        },
+      ),
+      ListTile(
+        leading: const Icon(Icons.terminal),
+        title: const Text('Verbose Monitor'),
+        onTap: _launchVerboseMonitor,
+      ),
+    ];
+
+    final pageTitle = [
+      'Drives Manager',
+      'Storage Statistics',
+      'File Browser',
+    ][_selectedIndex];
+
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('DriveDriver'),
-        actions: [
-          ValueListenableBuilder<bool>(
-            valueListenable: widget.backendService.isBackendRunning,
-            builder: (context, isRunning, child) {
-              return Chip(
-                label:
-                    Text(isRunning ? 'Backend: Running' : 'Backend: Stopped'),
-                backgroundColor: isRunning ? Colors.green : Colors.red,
-              );
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            onPressed: () async {
-              ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Refreshing data...')));
-              await widget.backendService.refreshAllData();
-              ScaffoldMessenger.of(context).hideCurrentSnackBar();
-              ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Data refreshed')));
-            },
-          ),
-        ],
-      ),
-      drawer: Drawer(
-        child: ListView(
-          padding: EdgeInsets.zero,
-          children: [
-            const DrawerHeader(
-              decoration: BoxDecoration(
-                color: Colors.blue,
-              ),
-              child: Text(
-                'DriveDriver',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 24,
-                ),
-              ),
-            ),
-            ListTile(
-              title: const Text('Drives'),
-              selected: _selectedIndex == 0,
-              onTap: () {
-                setState(() {
-                  _selectedIndex = 0;
-                });
-                Navigator.pop(context);
-              },
-            ),
-            ListTile(
-              title: const Text('Files & Stats'),
-              selected: _selectedIndex == 1,
-              onTap: () {
-                setState(() {
-                  _selectedIndex = 1;
-                });
-                Navigator.pop(context);
-              },
-            ),
-            ListTile(
-              title: const Text('File Browser'),
-              selected: _selectedIndex == 2,
-              onTap: () {
-                setState(() {
-                  _selectedIndex = 2;
-                });
-                Navigator.pop(context);
-              },
-            ),
-            const Divider(),
-            ListTile(
-              title: const Text('Latest Stats'),
-              leading: const Icon(Icons.insert_chart),
-              onTap: () {
-                Navigator.pop(context);
-                Navigator.pushNamed(context, '/latest_stats');
-              },
-            ),
-            ValueListenableBuilder<bool>(
-              valueListenable: widget.backendService.isBackendRunning,
-              builder: (context, isRunning, child) {
-                return ListTile(
-                  title: Text(isRunning ? 'Stop Backend' : 'Start Backend'),
-                  leading: Icon(isRunning ? Icons.stop : Icons.play_arrow),
-                  onTap: () async {
-                    if (isRunning) {
-                      await widget.backendService.stopBackend();
-                    } else {
-                      final result = await widget.backendService.startBackend();
-                      // Wait for backend to start
-                      await Future.delayed(const Duration(seconds: 3));
-                      final running =
-                          await widget.backendService.checkBackendRunning();
-
-                      if (!running && !result) {
-                        // Show message if failed to start backend
-                        if (Navigator.canPop(context)) {
-                          Navigator.pop(context); // Close drawer first
-                        }
-
-                        showDialog(
-                          context: context,
-                          builder: (context) => AlertDialog(
-                            title: Text('Backend Not Started'),
-                            content: Text(
-                                'Could not start the backend automatically. Please:\n\n'
-                                '1. Make sure "drivedriverb" is installed and in your PATH\n'
-                                '2. Try running "drivedriverb start" manually from a terminal\n'
-                                '3. Check if the backend is already running on another process'),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.pop(context),
-                                child: Text('OK'),
-                              ),
-                            ],
-                          ),
-                        );
-                      } else {
-                        Navigator.pop(context);
-                      }
-                    }
-                  },
-                );
-              },
-            ),
-          ],
-        ),
-      ),
-      body: IndexedStack(
-        index: _selectedIndex,
+      body: Row(
         children: [
-          DrivesPage(backendService: widget.backendService),
-          StatsPage(backendService: widget.backendService),
-          FilesPage(backendService: widget.backendService),
+          // Persistent side navigation
+          ModernDrawer(
+            items: drawerItems,
+            selectedIndex: _selectedIndex,
+            onItemSelected: _onItemTapped,
+            footerItems: drawerFooterItems,
+          ),
+          // Main content area
+          Expanded(
+            child: Scaffold(
+              appBar: AppBar(
+                title: Row(
+                  children: [
+                    Icon(
+                      drawerItems[_selectedIndex].icon,
+                      size: 24,
+                    ),
+                    const SizedBox(width: 12),
+                    Text(pageTitle),
+                  ],
+                ),
+                elevation: 0,
+                actions: [
+                  IconButton(
+                    icon: const Icon(Icons.refresh),
+                    tooltip: 'Refresh data',
+                    onPressed: _refreshData,
+                  ),
+                  const SizedBox(width: 8),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8.0),
+                    child: BackendStatusButton(
+                      backendService: widget.backendService,
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                ],
+              ),
+              body: PageView(
+                controller: _pageController,
+                physics: const NeverScrollableScrollPhysics(),
+                onPageChanged: (index) {
+                  setState(() {
+                    _selectedIndex = index;
+                  });
+                },
+                children: [
+                  DrivesPage(backendService: widget.backendService),
+                  StatsPage(backendService: widget.backendService),
+                  FilesPage(backendService: widget.backendService),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );
