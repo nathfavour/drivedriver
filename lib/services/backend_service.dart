@@ -113,7 +113,7 @@ class BackendService {
   String get baseUrl => _overriddenBaseUrl ?? _baseUrl;
   static String? _overriddenBaseUrl;
 
-  /// Start the backend process
+  /// Start the backend process using Process.run
   Future<bool> startBackend() async {
     try {
       // Prevent subprocess execution on mobile platforms
@@ -123,46 +123,56 @@ class BackendService {
         return false;
       }
 
-      print('Attempting to start backend with command: drivedriverb start');
+      print('Backend: Attempting to start backend service...');
 
-      // Simply run the command 'drivedriverb start'
-      final process = await Process.start(
-        'drivedriverb',
-        ['start'],
-        runInShell: true,
-        mode: ProcessStartMode.detachedWithStdio,
-      );
+      // Use Process.run to execute the command and capture output
+      final result =
+          await Process.run('drivedriverb', ['start'], runInShell: true);
 
-      // Log process output for debugging
-      process.stdout.transform(utf8.decoder).listen((data) {
-        print('Backend stdout: $data');
-      });
-      process.stderr.transform(utf8.decoder).listen((data) {
-        print('Backend stderr: $data');
-      });
+      print('Backend stdout: ${result.stdout}');
+      print('Backend stderr: ${result.stderr}');
 
+      // Check if the command executed successfully
+      if (result.exitCode != 0) {
+        print('Backend failed to start with exit code: ${result.exitCode}');
+        return false;
+      }
+
+      print('Backend start command executed successfully');
       return true;
-    } catch (e) {
+    } catch (e, stackTrace) {
       print('Failed to start backend: $e');
+      print('Stack trace: $stackTrace');
       return false;
     }
   }
 
-  /// Stop the backend process
+  /// Stop the backend process using Process.run
   Future<bool> stopBackend() async {
     try {
-      print('Attempting to stop backend with command: drivedriverb stop');
+      print('Backend: Attempting to stop backend service...');
 
-      // Simply run the command 'drivedriverb stop'
+      // Use Process.run to execute the stop command and capture output
       final result =
           await Process.run('drivedriverb', ['stop'], runInShell: true);
+
+      print('Backend stop stdout: ${result.stdout}');
+      print('Backend stop stderr: ${result.stderr}');
 
       // Update status
       isBackendRunning.value = await checkBackendRunning();
 
-      return result.exitCode == 0;
-    } catch (e) {
+      // Check if the command executed successfully
+      if (result.exitCode != 0) {
+        print('Backend stop command failed with exit code: ${result.exitCode}');
+        return false;
+      }
+
+      print('Backend stopped successfully');
+      return true;
+    } catch (e, stackTrace) {
       print('Failed to stop backend: $e');
+      print('Stack trace: $stackTrace');
       return false;
     }
   }
