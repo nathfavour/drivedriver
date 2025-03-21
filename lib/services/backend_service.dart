@@ -48,18 +48,48 @@ class BackendService {
   /// Check if the backend is currently running
   Future<bool> checkBackendRunning() async {
     try {
+      print('Checking backend at $_baseUrl/health');
       final response = await http
           .get(
             Uri.parse('$_baseUrl/health'),
           )
           .timeout(Duration(seconds: _connectionTimeout));
 
+      print('Backend response status: ${response.statusCode}');
       return response.statusCode == 200;
     } catch (e) {
       print('Backend health check failed: $e');
+      // Try alternate port or localhost specifically
+      try {
+        print('Trying alternate address 10.0.2.2:8080 (for emulators)');
+        final altResponse = await http
+            .get(
+              Uri.parse('http://10.0.2.2:8080/health'),
+            )
+            .timeout(Duration(seconds: _connectionTimeout));
+
+        if (altResponse.statusCode == 200) {
+          // If this works, update the base URL
+          _updateBaseUrl('http://10.0.2.2:8080');
+          return true;
+        }
+      } catch (e2) {
+        print('Alternate health check failed: $e2');
+      }
       return false;
     }
   }
+
+  // Add method to update base URL if needed
+  void _updateBaseUrl(String newUrl) {
+    print('Updating base URL to $newUrl');
+    // Using a static variable to update the singleton's base URL
+    _overriddenBaseUrl = newUrl;
+  }
+
+  // Getter for base URL that allows for runtime override
+  String get baseUrl => _overriddenBaseUrl ?? _baseUrl;
+  static String? _overriddenBaseUrl;
 
   /// Start the backend process
   Future<bool> startBackend() async {
@@ -118,7 +148,7 @@ class BackendService {
     if (!isBackendRunning.value) return;
 
     try {
-      final response = await http.get(Uri.parse('$_baseUrl/drives'));
+      final response = await http.get(Uri.parse('${baseUrl}/drives'));
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -134,7 +164,7 @@ class BackendService {
     if (!isBackendRunning.value) return;
 
     try {
-      final response = await http.get(Uri.parse('$_baseUrl/stats'));
+      final response = await http.get(Uri.parse('${baseUrl}/stats'));
 
       if (response.statusCode == 200) {
         scanStats.value = jsonDecode(response.body);
@@ -149,7 +179,7 @@ class BackendService {
     if (!isBackendRunning.value) return;
 
     try {
-      final response = await http.get(Uri.parse('$_baseUrl/metadata'));
+      final response = await http.get(Uri.parse('${baseUrl}/metadata'));
 
       if (response.statusCode == 200) {
         fileMetadata.value = jsonDecode(response.body);
@@ -165,7 +195,7 @@ class BackendService {
 
     try {
       final response = await http.post(
-        Uri.parse('$_baseUrl/scan'),
+        Uri.parse('${baseUrl}/scan'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({'path': path}),
       );
