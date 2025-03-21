@@ -7,6 +7,9 @@ class BackendService {
   static const String _baseUrl = 'http://127.0.0.1:8080';
   static const int _connectionTimeout = 5; // seconds
 
+  // Current port the backend is running on
+  int _currentPort = 8080;
+
   final ValueNotifier<bool> isBackendRunning = ValueNotifier<bool>(false);
   final ValueNotifier<List<String>> availableDrives =
       ValueNotifier<List<String>>([]);
@@ -45,8 +48,8 @@ class BackendService {
   /// Initialize the backend service, checking if the backend is running
   /// and starting it if necessary
   Future<void> initialize() async {
-    // Check if backend is running
-    if (!await checkBackendRunning()) {
+    // First try to locate any existing backend by checking multiple ports
+    if (!await _findRunningBackend()) {
       // Try to start backend
       final started = await startBackend();
       if (started) {
@@ -67,39 +70,63 @@ class BackendService {
     _startPeriodicChecks();
   }
 
-  /// Check if the backend is currently running
-  Future<bool> checkBackendRunning() async {
+  // Try to find a running backend on various ports
+  Future<bool> _findRunningBackend() async {
+    // Try the default port first
+    if (await _checkPortRunning(_currentPort)) {
+      return true;
+    }
+
+    // Try common alternative ports
+    final portsToTry = [8081, 8082, 8000, 3000];
+    for (final port in portsToTry) {
+      if (await _checkPortRunning(port)) {
+        _currentPort = port;
+        _updateBaseUrl('http://127.0.0.1:$port');
+        return true;
+      }
+    }
+
+    // Also check for Android emulator special IP
+    if (Platform.isAndroid) {
+      for (final port in [8080, ...(portsToTry)]) {
+        final altUrl = 'http://10.0.2.2:$port';
+        if (await _checkUrlRunning(altUrl)) {
+          _currentPort = port;
+          _updateBaseUrl(altUrl);
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }
+
+  // Check if backend is running on a specific port
+  Future<bool> _checkPortRunning(int port) async {
+    return await _checkUrlRunning('http://127.0.0.1:$port');
+  }
+
+  // Check if backend is running at a specific URL
+  Future<bool> _checkUrlRunning(String url) async {
     try {
-      print('Checking backend at $_baseUrl/health');
+      print('Checking backend at $url/health');
       final response = await http
           .get(
-            Uri.parse('$_baseUrl/health'),
+            Uri.parse('$url/health'),
           )
           .timeout(Duration(seconds: _connectionTimeout));
 
-      print('Backend response status: ${response.statusCode}');
       return response.statusCode == 200;
     } catch (e) {
-      print('Backend health check failed: $e');
-      // Try alternate port or localhost specifically
-      try {
-        print('Trying alternate address 10.0.2.2:8080 (for emulators)');
-        final altResponse = await http
-            .get(
-              Uri.parse('http://10.0.2.2:8080/health'),
-            )
-            .timeout(Duration(seconds: _connectionTimeout));
-
-        if (altResponse.statusCode == 200) {
-          // If this works, update the base URL
-          _updateBaseUrl('http://10.0.2.2:8080');
-          return true;
-        }
-      } catch (e2) {
-        print('Alternate health check failed: $e2');
-      }
+      print('Backend check failed at $url: $e');
       return false;
     }
+  }
+
+  /// Check if the backend is currently running
+  Future<bool> checkBackendRunning() async {
+    return await _checkUrlRunning('${baseUrl}/health');
   }
 
   // Add method to update base URL if needed
@@ -114,7 +141,7 @@ class BackendService {
   static String? _overriddenBaseUrl;
 
   /// Start the backend process using the full path from user home dir
-  Future<bool> startBackend() async {
+  Future<bool> startBackend({int port = 8080}) async {
     try {
       // Prevent subprocess execution on mobile platforms.
       if (Platform.isAndroid || Platform.isIOS) {
@@ -134,20 +161,28 @@ class BackendService {
         print("HOME environment variable not set.");
         return false;
       }
+
+      _currentPort = port;
       final executablePath = '$home/.drivedriver/drivedriverb';
       print(
-          'Backend: Attempting to start backend service using $executablePath ...');
+          'Backend: Attempting to start backend service using $executablePath on port $_currentPort...');
 
-      final result =
-          await Process.run(executablePath, ['start'], runInShell: true);
+      final result = await Process.run(
+          executablePath, ['start', '--port', port.toString()],
+          runInShell: true);
+
       print('Backend stdout: ${result.stdout}');
       print('Backend stderr: ${result.stderr}');
+
       if (result.exitCode != 0) {
         print('Backend failed to start with exit code: ${result.exitCode}');
         return false;
       }
 
-      print('Backend start command executed successfully');
+      // Update the base URL to use the new port
+      _updateBaseUrl('http://127.0.0.1:$port');
+
+      print('Backend start command executed successfully on port $port');
       return true;
     } catch (e, stackTrace) {
       print('Failed to start backend: $e');
@@ -183,6 +218,36 @@ class BackendService {
       print('Failed to stop backend: $e');
       print('Stack trace: $stackTrace');
       return false;
+    }
+  }
+
+  /// Launch verbose monitoring mode
+  Future<Process?> launchVerboseMonitor() async {
+    if (Platform.isAndroid || Platform.isIOS) {
+      print("Verbose monitoring not available on mobile platforms.");
+      return null;
+    }
+
+    try {
+      final home = Platform.environment['HOME'];
+      if (home == null) {
+        print("HOME environment variable not set.");
+        return null;
+      }
+
+      final executablePath = '$home/.drivedriver/drivedriverb';
+      print(
+          'Launching verbose monitor using $executablePath on port $_currentPort...');
+
+      // Start process but don't wait for it to complete
+      final process = await Process.start(
+          executablePath, ['verbose', '--port', _currentPort.toString()],
+          mode: ProcessStartMode.inheritStdio);
+
+      return process;
+    } catch (e) {
+      print('Failed to launch verbose monitor: $e');
+      return null;
     }
   }
 
