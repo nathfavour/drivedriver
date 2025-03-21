@@ -113,31 +113,32 @@ class BackendService {
   String get baseUrl => _overriddenBaseUrl ?? _baseUrl;
   static String? _overriddenBaseUrl;
 
-  /// Start the backend process using Process.run
+  /// Start the backend process using the full path from user home dir
   Future<bool> startBackend() async {
     try {
-      // Prevent subprocess execution on mobile platforms
       if (Platform.isAndroid || Platform.isIOS) {
         print(
             "Subprocess execution not allowed on mobile platforms. Please start the backend manually.");
         return false;
       }
 
-      print('Backend: Attempting to start backend service...');
+      final home = Platform.environment['HOME'];
+      if (home == null) {
+        print("HOME environment variable not set.");
+        return false;
+      }
+      final executablePath = '$home/.drivedriver/drivedriverb';
+      print(
+          'Backend: Attempting to start backend service using $executablePath ...');
 
-      // Use Process.run to execute the command and capture output
       final result =
-          await Process.run('drivedriverb', ['start'], runInShell: true);
-
+          await Process.run(executablePath, ['start'], runInShell: true);
       print('Backend stdout: ${result.stdout}');
       print('Backend stderr: ${result.stderr}');
-
-      // Check if the command executed successfully
       if (result.exitCode != 0) {
         print('Backend failed to start with exit code: ${result.exitCode}');
         return false;
       }
-
       print('Backend start command executed successfully');
       return true;
     } catch (e, stackTrace) {
@@ -147,27 +148,27 @@ class BackendService {
     }
   }
 
-  /// Stop the backend process using Process.run
+  /// Stop the backend process using the full path from user home dir
   Future<bool> stopBackend() async {
     try {
-      print('Backend: Attempting to stop backend service...');
+      final home = Platform.environment['HOME'];
+      if (home == null) {
+        print("HOME environment variable not set.");
+        return false;
+      }
+      final executablePath = '$home/.drivedriver/drivedriverb';
+      print(
+          'Backend: Attempting to stop backend service using $executablePath ...');
 
-      // Use Process.run to execute the stop command and capture output
       final result =
-          await Process.run('drivedriverb', ['stop'], runInShell: true);
-
+          await Process.run(executablePath, ['stop'], runInShell: true);
       print('Backend stop stdout: ${result.stdout}');
       print('Backend stop stderr: ${result.stderr}');
-
-      // Update status
       isBackendRunning.value = await checkBackendRunning();
-
-      // Check if the command executed successfully
       if (result.exitCode != 0) {
         print('Backend stop command failed with exit code: ${result.exitCode}');
         return false;
       }
-
       print('Backend stopped successfully');
       return true;
     } catch (e, stackTrace) {
