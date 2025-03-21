@@ -526,20 +526,26 @@ class BackendService {
 
   /// Set up periodic health checks and data refresh
   void _startPeriodicChecks() {
-    // Check backend health every 30 seconds and attempt restart if not running.
+    // Check backend health every 30 seconds and attempt restart only if confirmed not running.
     Future.doWhile(() async {
       await Future.delayed(const Duration(seconds: 30));
       final isRunning = await checkBackendRunning();
 
       if (!isRunning) {
-        print("Backend not running; attempting restart...");
-        final started = await startBackend();
-        if (started) {
-          print("Backend restarted successfully.");
-          // Wait a bit before re-checking
-          await Future.delayed(const Duration(seconds: 3));
+        // Double-check before attempting restart
+        final confirmedNotRunning = !(await checkBackendRunning());
+        if (confirmedNotRunning) {
+          print("Backend not running; attempting restart...");
+          final started = await startBackend();
+          if (started) {
+            print("Backend restarted successfully.");
+            // Wait a bit before re-checking
+            await Future.delayed(const Duration(seconds: 3));
+          } else {
+            print("Failed to restart backend.");
+          }
         } else {
-          print("Failed to restart backend.");
+          print("Backend is running; skipping restart.");
         }
       }
 
