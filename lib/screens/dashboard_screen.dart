@@ -6,6 +6,8 @@ import '../models/scan_status.dart'; // Ensure this file exists and is correctly
 import '../widgets/file_list_item.dart'; // Ensure this file exists and is correctly implemented
 
 class DashboardScreen extends StatefulWidget {
+  const DashboardScreen({super.key});
+
   @override
   _DashboardScreenState createState() => _DashboardScreenState();
 }
