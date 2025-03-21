@@ -102,12 +102,39 @@ class _HomePageState extends State<HomePage> {
                     if (isRunning) {
                       await widget.backendService.stopBackend();
                     } else {
-                      await widget.backendService.startBackend();
+                      final result = await widget.backendService.startBackend();
                       // Wait for backend to start
                       await Future.delayed(const Duration(seconds: 3));
-                      await widget.backendService.checkBackendRunning();
+                      final running =
+                          await widget.backendService.checkBackendRunning();
+
+                      if (!running && !result) {
+                        // Show message if failed to start backend
+                        if (Navigator.canPop(context)) {
+                          Navigator.pop(context); // Close drawer first
+                        }
+
+                        showDialog(
+                          context: context,
+                          builder: (context) => AlertDialog(
+                            title: Text('Backend Not Started'),
+                            content: Text(
+                                'Could not start the backend automatically. Please:\n\n'
+                                '1. Make sure "drivedriverb" is installed and in your PATH\n'
+                                '2. Try running "drivedriverb start" manually from a terminal\n'
+                                '3. Check if the backend is already running on another process'),
+                            actions: [
+                              TextButton(
+                                onPressed: () => Navigator.pop(context),
+                                child: Text('OK'),
+                              ),
+                            ],
+                          ),
+                        );
+                      } else {
+                        Navigator.pop(context);
+                      }
                     }
-                    Navigator.pop(context);
                   },
                 );
               },

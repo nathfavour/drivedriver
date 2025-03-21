@@ -116,46 +116,18 @@ class BackendService {
   /// Start the backend process
   Future<bool> startBackend() async {
     try {
-      // Prevent subprocess execution on mobile platforms.
+      // Prevent subprocess execution on mobile platforms
       if (Platform.isAndroid || Platform.isIOS) {
         print(
             "Subprocess execution not allowed on mobile platforms. Please start the backend manually.");
         return false;
       }
 
-      // Get path to the backend executable
-      final executablePath = await _getBackendExecutablePath();
-      if (executablePath == null) {
-        print('Failed to locate backend executable');
-        return false;
-      }
+      print('Attempting to start backend with command: drivedriverb start');
 
-      // Check if file exists and has execution permission
-      final execFile = File(executablePath);
-      if (await execFile.exists()) {
-        // On Unix systems, check file permissions
-        if (!Platform.isWindows) {
-          try {
-            final result = await Process.run('test', ['-x', executablePath]);
-            if (result.exitCode != 0) {
-              print('Backend executable found but lacks execution permission.');
-              print('Run: chmod +x $executablePath');
-              return false;
-            }
-          } catch (e) {
-            print('Could not check file permissions: $e');
-          }
-        }
-      } else {
-        print('Backend executable not found at: $executablePath');
-        return false;
-      }
-
-      print('Launching backend from: $executablePath');
-
-      // Start the backend process
+      // Simply run the command 'drivedriverb start'
       final process = await Process.start(
-        executablePath,
+        'drivedriverb',
         ['start'],
         runInShell: true,
         mode: ProcessStartMode.detachedWithStdio,
@@ -179,12 +151,11 @@ class BackendService {
   /// Stop the backend process
   Future<bool> stopBackend() async {
     try {
-      final executablePath = await _getBackendExecutablePath();
-      if (executablePath == null) {
-        return false;
-      }
+      print('Attempting to stop backend with command: drivedriverb stop');
 
-      final result = await Process.run(executablePath, ['stop']);
+      // Simply run the command 'drivedriverb stop'
+      final result =
+          await Process.run('drivedriverb', ['stop'], runInShell: true);
 
       // Update status
       isBackendRunning.value = await checkBackendRunning();
