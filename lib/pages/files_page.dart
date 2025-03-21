@@ -4,6 +4,13 @@ import 'dart:io';
 import '../widgets/placeholder_content.dart';
 import '../widgets/file_details_dialog.dart';
 
+// Add the class at the top level, not inside another class
+class CategoryIconData {
+  final IconData icon;
+  final Color color;
+  CategoryIconData(this.icon, this.color);
+}
+
 class FilesPage extends StatefulWidget {
   final BackendService backendService;
 
@@ -321,43 +328,13 @@ class _FilesPageState extends State<FilesPage> {
             final importance = file['importance'] as int;
 
             // Determine icon based on category
-            IconData icon;
-            Color iconColor;
-
-            switch (category.toLowerCase()) {
-              case 'document':
-                icon = Icons.description;
-                iconColor = Colors.blue;
-                break;
-              case 'image':
-                icon = Icons.image;
-                iconColor = Colors.green;
-                break;
-              case 'video':
-                icon = Icons.videocam;
-                iconColor = Colors.red;
-                break;
-              case 'audio':
-                icon = Icons.audiotrack;
-                iconColor = Colors.purple;
-                break;
-              case 'archive':
-                icon = Icons.folder_zip;
-                iconColor = Colors.amber;
-                break;
-              case 'application':
-                icon = Icons.apps;
-                iconColor = Colors.cyan;
-                break;
-              default:
-                icon = Icons.insert_drive_file;
-                iconColor = Colors.grey;
-            }
+            final categoryIconData = _getCategoryIconAndColor(category);
 
             return Card(
               margin: EdgeInsets.symmetric(horizontal: 16, vertical: 4),
               child: ListTile(
-                leading: Icon(icon, color: iconColor, size: 36),
+                leading: Icon(categoryIconData.icon,
+                    color: categoryIconData.color, size: 36),
                 title: Text(name, overflow: TextOverflow.ellipsis),
                 subtitle: Text(
                   path,
@@ -579,23 +556,23 @@ class _FilesPageState extends State<FilesPage> {
     if (importance >= 20) return Colors.blue;
     return Colors.grey;
   }
-  
-  (IconData, Color) _getCategoryIconAndColor(String category) {
+
+  CategoryIconData _getCategoryIconAndColor(String category) {
     switch (category.toLowerCase()) {
       case 'document':
-        return (Icons.description, Colors.blue);
+        return CategoryIconData(Icons.description, Colors.blue);
       case 'image':
-        return (Icons.image, Colors.green);
+        return CategoryIconData(Icons.image, Colors.green);
       case 'video':
-        return (Icons.videocam, Colors.red);
+        return CategoryIconData(Icons.videocam, Colors.red);
       case 'audio':
-        return (Icons.audiotrack, Colors.purple);
+        return CategoryIconData(Icons.audiotrack, Colors.purple);
       case 'archive':
-        return (Icons.folder_zip, Colors.amber);
+        return CategoryIconData(Icons.folder_zip, Colors.amber);
       case 'application':
-        return (Icons.apps, Colors.cyan);
+        return CategoryIconData(Icons.apps, Colors.cyan);
       default:
-        return (Icons.insert_drive_file, Colors.grey);
+        return CategoryIconData(Icons.insert_drive_file, Colors.grey);
     }
   }
 }

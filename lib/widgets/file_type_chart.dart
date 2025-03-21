@@ -48,7 +48,7 @@ class _FileTypeChartState extends State<FileTypeChart>
           builder: (context, child) {
             return CustomPaint(
               size: Size(constraints.maxWidth, constraints.maxHeight),
-              painter: PieChartPainter(widget.data, _animation.value),
+              painter: PieChartPainter(context, widget.data, _animation.value),
             );
           },
         );
@@ -58,10 +58,11 @@ class _FileTypeChartState extends State<FileTypeChart>
 }
 
 class PieChartPainter extends CustomPainter {
+  final BuildContext context;
   final List<MapEntry<String, int>> data;
   final double animationValue;
 
-  PieChartPainter(this.data, this.animationValue);
+  PieChartPainter(this.context, this.data, this.animationValue);
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -79,7 +80,7 @@ class PieChartPainter extends CustomPainter {
 
     // Draw an inner circle to give depth (3D effect)
     final innerCircle = Paint()
-      ..color = Theme.of(context).cardColor
+      ..color = Theme.of(this.context).cardColor
       ..style = PaintingStyle.fill;
 
     canvas.drawCircle(center, radius * 0.95, innerCircle);
@@ -162,13 +163,13 @@ class PieChartPainter extends CustomPainter {
 
   void _drawLegend(Canvas canvas, Size size, List<LegendItem> items) {
     final textStyle = TextStyle(
-      color: Theme.of(context).colorScheme.onSurface,
+      color: Theme.of(this.context).colorScheme.onSurface,
       fontSize: 12,
       fontWeight: FontWeight.w500,
     );
 
     final valueStyle = TextStyle(
-      color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+      color: Theme.of(this.context).colorScheme.onSurface.withOpacity(0.7),
       fontSize: 11,
     );
 
@@ -190,7 +191,7 @@ class PieChartPainter extends CustomPainter {
     );
 
     final bgPaint = Paint()
-      ..color = Theme.of(context).cardColor.withOpacity(0.8)
+      ..color = Theme.of(this.context).cardColor.withOpacity(0.8)
       ..style = PaintingStyle.fill;
 
     canvas.drawRRect(rrect, bgPaint);
