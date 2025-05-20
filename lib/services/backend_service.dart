@@ -67,48 +67,56 @@ class BackendService {
     return null;
   }
 
-  /// Helper to find a random available port
-  Future<int> _findAvailablePort() async {
-    final random = Random();
-    for (int i = 0; i < 20; i++) {
-      final port = 10000 + random.nextInt(50000);
-      try {
-        final server = await ServerSocket.bind('127.0.0.1', port);
-        await server.close();
-        return port;
-      } catch (_) {}
-    }
-    return 8080; // fallback
-  }
-
-  /// Initialize the backend service, checking if the backend is running
-  /// and starting it if necessary
-  Future<void> initialize() async {
-    // Try to read port from config first
+  /// Ensure only one backend instance is running, and always connect to the correct port
+  Future<void> ensureSingleBackendInstance() async {
     final configPort = await _readBackendPortFromConfig();
     if (configPort != null) {
       _currentPort = configPort;
       _updateBaseUrl('http://127.0.0.1:$_currentPort');
+      if (await _checkPortRunning(_currentPort)) {
+        isBackendRunning.value = true;
+        return;
+      }
     }
-    // First try to locate any existing backend by checking multiple ports
-    if (!await _findRunningBackend()) {
-      // Try to start backend
+    // If config says running but not reachable, try to kill any zombie process
+    await _killZombieBackend();
+    isBackendRunning.value = false;
+  }
+
+  /// Kill any zombie backend process if config says running but not reachable
+  Future<void> _killZombieBackend() async {
+    try {
+      final file = File(_backendConfigPath);
+      if (await file.exists()) {
+        final content = await file.readAsString();
+        final json = jsonDecode(content);
+        if (json is Map && json['pid'] != null) {
+          final pid = json['pid'].toString();
+          if (Platform.isLinux || Platform.isMacOS) {
+            await Process.run('kill', ['-9', pid]);
+          } else if (Platform.isWindows) {
+            await Process.run('taskkill', ['/PID', pid, '/F']);
+          }
+        }
+      }
+    } catch (e) {
+      print('Failed to kill zombie backend: $e');
+    }
+  }
+
+  /// Override initialize to ensure only one backend instance and always connect to correct port
+  Future<void> initialize() async {
+    await ensureSingleBackendInstance();
+    if (!isBackendRunning.value) {
       final started = await startBackend();
       if (started) {
-        // Give backend time to start up
         await Future.delayed(const Duration(seconds: 3));
         isBackendRunning.value = await checkBackendRunning();
       }
-    } else {
-      isBackendRunning.value = true;
     }
-
-    // If backend is running, load initial data
     if (isBackendRunning.value) {
       await refreshAllData();
     }
-
-    // Set up periodic health check and data refresh
     _startPeriodicChecks();
   }
 

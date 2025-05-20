@@ -69,17 +69,18 @@ class _DrivesPageState extends State<DrivesPage>
     setState(() {
       _isRefreshing = true;
     });
-
     try {
       await widget.backendService.fetchDrives();
-      // Parse real drive info from backend
-      final drivesRaw = widget.backendService.availableDrives.value;
       final drivesJson =
           widget.backendService.systemStatus.value['drives'] ?? [];
       _drives = drivesJson is List
           ? drivesJson.map((e) => DriveInfo.fromJson(e)).toList()
           : [];
       _controller.forward(from: 0.0);
+    } catch (e) {
+      setState(() {
+        _drives = [];
+      });
     } finally {
       setState(() {
         _isRefreshing = false;
