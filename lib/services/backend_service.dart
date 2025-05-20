@@ -331,7 +331,18 @@ class BackendService {
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        availableDrives.value = List<String>.from(data['drives']);
+        // Expecting { "drives": [ { mount_point: ... }, ... ] }
+        if (data is Map && data['drives'] is List) {
+          final drivesList = data['drives'] as List;
+          availableDrives.value = drivesList
+              .map((item) => item is Map && item['mount_point'] != null
+                  ? item['mount_point'].toString()
+                  : null)
+              .whereType<String>()
+              .toList();
+        } else {
+          availableDrives.value = [];
+        }
       }
     } catch (e) {
       print('Failed to fetch drives: $e');
