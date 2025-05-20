@@ -614,6 +614,23 @@ class BackendService {
     return 'drivedriverb';
   }
 
+  /// Find an available port on localhost
+  Future<int> _findAvailablePort() async {
+    // Try ports in a reasonable range
+    for (int port = 10000; port < 60000; port++) {
+      try {
+        final server =
+            await ServerSocket.bind(InternetAddress.loopbackIPv4, port);
+        await server.close();
+        return port;
+      } catch (_) {
+        // Port is in use, try next
+      }
+    }
+    // Fallback to default if none found
+    return 8080;
+  }
+
   /// Set up periodic health checks and data refresh
   void _startPeriodicChecks() {
     // Check backend health every 30 seconds and attempt restart only if confirmed not running.
