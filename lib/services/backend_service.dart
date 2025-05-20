@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
@@ -45,9 +46,50 @@ class BackendService {
   int? _filterSizeMax;
   String? _searchTerm;
 
+  /// Helper to get the backend config path
+  String get _backendConfigPath =>
+      '${Platform.environment['HOME']}/.drivedriverb/config.json';
+
+  /// Helper to read the backend port from config.json
+  Future<int?> _readBackendPortFromConfig() async {
+    try {
+      final file = File(_backendConfigPath);
+      if (await file.exists()) {
+        final content = await file.readAsString();
+        final json = jsonDecode(content);
+        if (json is Map && json['port'] != null) {
+          return json['port'] as int;
+        }
+      }
+    } catch (e) {
+      print('Failed to read backend port from config: $e');
+    }
+    return null;
+  }
+
+  /// Helper to find a random available port
+  Future<int> _findAvailablePort() async {
+    final random = Random();
+    for (int i = 0; i < 20; i++) {
+      final port = 10000 + random.nextInt(50000);
+      try {
+        final server = await ServerSocket.bind('127.0.0.1', port);
+        await server.close();
+        return port;
+      } catch (_) {}
+    }
+    return 8080; // fallback
+  }
+
   /// Initialize the backend service, checking if the backend is running
   /// and starting it if necessary
   Future<void> initialize() async {
+    // Try to read port from config first
+    final configPort = await _readBackendPortFromConfig();
+    if (configPort != null) {
+      _currentPort = configPort;
+      _updateBaseUrl('http://127.0.0.1:$_currentPort');
+    }
     // First try to locate any existing backend by checking multiple ports
     if (!await _findRunningBackend()) {
       // Try to start backend
@@ -141,32 +183,29 @@ class BackendService {
   static String? _overriddenBaseUrl;
 
   /// Start the backend process using the full path from user home dir
-  Future<bool> startBackend({int port = 8080}) async {
+  Future<bool> startBackend({int? port}) async {
     // Always check if backend is running before attempting to start
     if (await checkBackendRunning()) {
       print("Backend already running, skipping start command.");
       return true;
     }
     try {
-      // Prevent subprocess execution on mobile platforms.
       if (Platform.isAndroid || Platform.isIOS) {
         print(
             "Subprocess execution not allowed on mobile platforms. Please start the backend manually.");
         return false;
       }
 
-      _currentPort = port;
+      // Use provided port or find a random available one
+      final int chosenPort = port ?? await _findAvailablePort();
+      _currentPort = chosenPort;
       final List<String> possiblePaths = [
-        // User home install
-        '${Platform.environment['HOME']}/.drivedriver/drivedriverb',
-        // System-wide install
+        '${Platform.environment['HOME']}/.drivedriverb/drivedriverb',
         '/usr/local/bin/drivedriverb',
         '/usr/bin/drivedriverb',
-        // Project-relative (for dev)
         '${Directory.current.path}/drivedriverb',
         '${Directory.current.path}/bin/drivedriverb',
         './drivedriverb',
-        // Just the command (PATH)
         'drivedriverb',
       ];
 
@@ -175,7 +214,6 @@ class BackendService {
         try {
           final file = File(path);
           if (path == 'drivedriverb') {
-            // Try running directly from PATH
             final result = await Process.run('which', ['drivedriverb']);
             if (result.exitCode == 0 &&
                 (result.stdout as String).trim().isNotEmpty) {
@@ -199,7 +237,7 @@ class BackendService {
           'Backend: Attempting to start backend service using $executablePath on port $_currentPort...');
       final result = await Process.run(
         executablePath,
-        ['start', '--port', port.toString()],
+        ['start', '--port', _currentPort.toString()],
         runInShell: true,
       );
 
@@ -212,9 +250,10 @@ class BackendService {
       }
 
       // Update the base URL to use the new port
-      _updateBaseUrl('http://127.0.0.1:$port');
+      _updateBaseUrl('http://127.0.0.1:$_currentPort');
 
-      print('Backend start command executed successfully on port $port');
+      print(
+          'Backend start command executed successfully on port $_currentPort');
       return true;
     } catch (e, stackTrace) {
       print('Failed to start backend: $e');
@@ -231,7 +270,7 @@ class BackendService {
         print("HOME environment variable not set.");
         return false;
       }
-      final executablePath = '$home/.drivedriver/drivedriverb';
+      final executablePath = '$home/.drivedriverb/drivedriverb';
       print(
           'Backend: Attempting to stop backend service using $executablePath ...');
 
@@ -267,7 +306,7 @@ class BackendService {
         return null;
       }
 
-      final executablePath = '$home/.drivedriver/drivedriverb';
+      final executablePath = '$home/.drivedriverb/drivedriverb';
       print(
           'Launching verbose monitor using $executablePath on port $_currentPort...');
 

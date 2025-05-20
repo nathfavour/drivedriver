@@ -119,51 +119,47 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text('DriveDriver'),
-        actions: [
-          IconButton(icon: Icon(Icons.refresh), onPressed: _loadData),
-          IconButton(
-            icon: Icon(Icons.settings),
-            onPressed: () => Navigator.pushNamed(context, '/settings'),
-          ),
-        ],
-      ),
+      appBar: AppBar(title: Text('DriveDriver Dashboard')),
       body: Column(
         children: [
-          if (_status != null && _status!.isScanning)
-            LinearProgressIndicator(
-              value: _status!.progress > 0 ? _status!.progress : null,
-            ),
-          Padding(
-            padding: const EdgeInsets.all(8.0),
-            child: Row(
-              children: [
-                IconButton(
-                  icon: Icon(Icons.arrow_upward),
-                  onPressed: _currentPath == '/' ? null : _navigateUp,
-                ),
-                Expanded(
-                  child: Text(
-                    _currentPath == '/' ? 'Root' : _currentPath,
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleMedium, // Updated from subtitle1
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Divider(),
+          _buildStatusBar(),
           Expanded(child: _buildFileList()),
-          Padding(padding: const EdgeInsets.all(8.0), child: _buildStatusBar()),
         ],
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _status?.isScanning == true ? null : _startScan,
-        child: Icon(Icons.search),
-        tooltip: 'Start Scan',
+      floatingActionButton: PopupMenuButton<String>(
+        icon: Icon(Icons.add),
+        onSelected: (value) async {
+          if (value == 'create_file') {
+            // Show dialog to create file
+            final fileName = await showDialog<String>(
+              context: context,
+              builder: (context) => _CreateFileDialog(),
+            );
+            if (fileName != null && fileName.isNotEmpty) {
+              final api = Provider.of<ApiService>(context, listen: false);
+              await api.createFile('$_currentPath/$fileName');
+              _loadData();
+            }
+          } else if (value == 'create_folder') {
+            // Show dialog to create folder
+            final folderName = await showDialog<String>(
+              context: context,
+              builder: (context) => _CreateFileDialog(isFolder: true),
+            );
+            if (folderName != null && folderName.isNotEmpty) {
+              final api = Provider.of<ApiService>(context, listen: false);
+              await api.createFile('$_currentPath/$folderName', content: null);
+              _loadData();
+            }
+          } else if (value == 'refresh') {
+            _loadData();
+          }
+        },
+        itemBuilder: (context) => [
+          PopupMenuItem(value: 'create_file', child: Text('Create File')),
+          PopupMenuItem(value: 'create_folder', child: Text('Create Folder')),
+          PopupMenuItem(value: 'refresh', child: Text('Refresh')),
+        ],
       ),
     );
   }
@@ -172,35 +168,63 @@ class _DashboardScreenState extends State<DashboardScreen> {
     if (_isLoading) {
       return Center(child: CircularProgressIndicator());
     }
-
     if (_error != null) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Text('Error: $_error'),
-            SizedBox(height: 16),
-            ElevatedButton(onPressed: _loadData, child: Text('Retry')),
-          ],
-        ),
-      );
+      return Center(child: Text(_error!));
     }
-
     if (_files.isEmpty) {
-      return Center(child: Text('No files found'));
+      return Center(child: Text('No files found.'));
     }
-
     return ListView.builder(
       itemCount: _files.length,
       itemBuilder: (context, index) {
         final file = _files[index];
-        return FileListItem(
-          file: file,
+        return ListTile(
+          leading: Icon(file.type == FileType.directory
+              ? Icons.folder
+              : Icons.insert_drive_file),
+          title: Text(file.name),
+          subtitle: Text(file.sizeFormatted),
           onTap: () {
             if (file.type == FileType.directory) {
               _navigateToDirectory(file.path);
+            } else {
+              // Show file details
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => FileDetailScreen(file: file),
+                ),
+              );
             }
           },
+          trailing: PopupMenuButton<String>(
+            onSelected: (value) async {
+              final api = Provider.of<ApiService>(context, listen: false);
+              if (value == 'delete') {
+                await api.deleteFile(file.path);
+                _loadData();
+              } else if (value == 'rename') {
+                final newName = await showDialog<String>(
+                  context: context,
+                  builder: (context) => _RenameFileDialog(oldName: file.name),
+                );
+                if (newName != null && newName.isNotEmpty) {
+                  await api.renameFile(file.path, '${_currentPath}/$newName');
+                  _loadData();
+                }
+              } else if (value == 'copy') {
+                // Implement copy logic (show dialog for destination)
+              } else if (value == 'move') {
+                // Implement move logic (show dialog for destination)
+              }
+            },
+            itemBuilder: (context) => [
+              PopupMenuItem(value: 'delete', child: Text('Delete')),
+              PopupMenuItem(value: 'rename', child: Text('Rename')),
+              PopupMenuItem(value: 'copy', child: Text('Copy')),
+              PopupMenuItem(value: 'move', child: Text('Move')),
+            ],
+          ),
         );
       },
     );
@@ -208,20 +232,74 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Widget _buildStatusBar() {
     if (_status == null) {
-      return Text('Status: Unknown');
+      return SizedBox.shrink();
     }
+    return ListTile(
+      leading: Icon(Icons.info),
+      title: Text('Scan: ${_status!.isScanning ? 'In Progress' : 'Idle'}'),
+      subtitle: Text(
+          'Files Scanned: ${_status!.filesScanned} / ${_status!.totalFiles}'),
+      trailing: _status!.isScanning
+          ? CircularProgressIndicator(value: _status!.progress)
+          : IconButton(
+              icon: Icon(Icons.refresh),
+              onPressed: _loadStatus,
+            ),
+    );
+  }
 
-    final status = _status!;
-    if (status.isScanning) {
-      return Text(
-        'Scanning... ${status.filesScanned} of ${status.totalFiles} files processed',
-      );
-    } else if (status.lastScan != null) {
-      return Text(
-        'Last scan: ${status.lastScan!.toLocal().toString().split('.').first}',
-      );
-    } else {
-      return Text('No scan performed yet');
-    }
+// Dialogs for file/folder creation and renaming
+}
+
+class _CreateFileDialog extends StatelessWidget {
+  final bool isFolder;
+  const _CreateFileDialog({this.isFolder = false});
+  @override
+  Widget build(BuildContext context) {
+    final controller = TextEditingController();
+    return AlertDialog(
+      title: Text(isFolder ? 'Create Folder' : 'Create File'),
+      content: TextField(
+        controller: controller,
+        decoration:
+            InputDecoration(hintText: isFolder ? 'Folder name' : 'File name'),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text('Cancel'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(context, controller.text),
+          child: Text('Create'),
+        ),
+      ],
+    );
+  }
+}
+
+class _RenameFileDialog extends StatelessWidget {
+  final String oldName;
+  const _RenameFileDialog({required this.oldName});
+  @override
+  Widget build(BuildContext context) {
+    final controller = TextEditingController(text: oldName);
+    return AlertDialog(
+      title: Text('Rename File'),
+      content: TextField(
+        controller: controller,
+        decoration: InputDecoration(hintText: 'New name'),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text('Cancel'),
+        ),
+        TextButton(
+          onPressed: () => Navigator.pop(context, controller.text),
+          child: Text('Rename'),
+        ),
+      ],
+    );
   }
 }
