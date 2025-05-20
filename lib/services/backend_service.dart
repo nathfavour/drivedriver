@@ -142,18 +142,17 @@ class BackendService {
 
   /// Start the backend process using the full path from user home dir
   Future<bool> startBackend({int port = 8080}) async {
+    // Always check if backend is running before attempting to start
+    if (await checkBackendRunning()) {
+      print("Backend already running, skipping start command.");
+      return true;
+    }
     try {
       // Prevent subprocess execution on mobile platforms.
       if (Platform.isAndroid || Platform.isIOS) {
         print(
             "Subprocess execution not allowed on mobile platforms. Please start the backend manually.");
         return false;
-      }
-
-      // Check if the backend is already running from health endpoint.
-      if (await checkBackendRunning()) {
-        print("Backend already running, skipping start command.");
-        return true;
       }
 
       _currentPort = port;
@@ -204,8 +203,8 @@ class BackendService {
         runInShell: true,
       );
 
-      print('Backend stdout: \n${result.stdout}');
-      print('Backend stderr: \n${result.stderr}');
+      print('Backend stdout: \n[32m${result.stdout}\u001b[0m');
+      print('Backend stderr: \n[31m${result.stderr}\u001b[0m');
 
       if (result.exitCode != 0) {
         print('Backend failed to start with exit code: \n${result.exitCode}');
@@ -569,13 +568,18 @@ class BackendService {
         final confirmedNotRunning = !(await checkBackendRunning());
         if (confirmedNotRunning) {
           print("Backend not running; attempting restart...");
-          final started = await startBackend();
-          if (started) {
-            print("Backend restarted successfully.");
-            // Wait a bit before re-checking
-            await Future.delayed(const Duration(seconds: 3));
+          // Only attempt to start if not running
+          if (!(await checkBackendRunning())) {
+            final started = await startBackend();
+            if (started) {
+              print("Backend restarted successfully.");
+              // Wait a bit before re-checking
+              await Future.delayed(const Duration(seconds: 3));
+            } else {
+              print("Failed to restart backend.");
+            }
           } else {
-            print("Failed to restart backend.");
+            print("Backend is running; skipping restart.");
           }
         } else {
           print("Backend is running; skipping restart.");
