@@ -156,26 +156,59 @@ class BackendService {
         return true;
       }
 
-      final home = Platform.environment['HOME'];
-      if (home == null) {
-        print("HOME environment variable not set.");
+      _currentPort = port;
+      final List<String> possiblePaths = [
+        // User home install
+        '${Platform.environment['HOME']}/.drivedriver/drivedriverb',
+        // System-wide install
+        '/usr/local/bin/drivedriverb',
+        '/usr/bin/drivedriverb',
+        // Project-relative (for dev)
+        '${Directory.current.path}/drivedriverb',
+        '${Directory.current.path}/bin/drivedriverb',
+        './drivedriverb',
+        // Just the command (PATH)
+        'drivedriverb',
+      ];
+
+      String? executablePath;
+      for (final path in possiblePaths) {
+        try {
+          final file = File(path);
+          if (path == 'drivedriverb') {
+            // Try running directly from PATH
+            final result = await Process.run('which', ['drivedriverb']);
+            if (result.exitCode == 0 &&
+                (result.stdout as String).trim().isNotEmpty) {
+              executablePath = 'drivedriverb';
+              break;
+            }
+          } else if (await file.exists()) {
+            executablePath = path;
+            break;
+          }
+        } catch (_) {}
+      }
+
+      if (executablePath == null) {
+        print(
+            'Could not find drivedriverb backend executable in any known location.');
         return false;
       }
 
-      _currentPort = port;
-      final executablePath = '$home/.drivedriver/drivedriverb';
       print(
           'Backend: Attempting to start backend service using $executablePath on port $_currentPort...');
-
       final result = await Process.run(
-          executablePath, ['start', '--port', port.toString()],
-          runInShell: true);
+        executablePath,
+        ['start', '--port', port.toString()],
+        runInShell: true,
+      );
 
-      print('Backend stdout: ${result.stdout}');
-      print('Backend stderr: ${result.stderr}');
+      print('Backend stdout: \n${result.stdout}');
+      print('Backend stderr: \n${result.stderr}');
 
       if (result.exitCode != 0) {
-        print('Backend failed to start with exit code: ${result.exitCode}');
+        print('Backend failed to start with exit code: \n${result.exitCode}');
         return false;
       }
 
